@@ -10,7 +10,7 @@ const AuctionCard = ({ auction }) => {
       <img src={auction.image} alt={auction.title} className="rounded-xl h-40 w-full object-cover" />
       <h3 className="text-lg font-semibold mt-3">{auction.title}</h3>
 
-      {auction.status === "closed" && (
+      {auction.status === "completed" && (
         <span className="inline-block mt-2 px-2 py-1 text-xs font-semibold text-white bg-gray-500 rounded-full">
           Closed
         </span>
@@ -22,14 +22,14 @@ const AuctionCard = ({ auction }) => {
       </p>
 
       <Link
-        to={auction.status === "closed" ? "#" : `/auction/${auction.id}`}
+        to={auction.status === "completed" ? "#" : `/auction/${auction.id}`}
         className={`text-center py-1 rounded-lg transition-all ${
-          auction.status === "closed"
+          auction.status === "completed"
             ? "bg-gray-400 cursor-not-allowed text-white"
             : "bg-blue-600 hover:bg-blue-700 text-white"
         }`}
       >
-        {auction.status === "closed" ? "Closed" : "View Details"}
+        {auction.status === "completed" ? "Closed" : "View Details"}
       </Link>
     </div>
   );

@@ -18,18 +18,40 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// Every minute check for expired auctions
+// Every minute update auction statuses (upcoming -> ongoing -> completed)
 cron.schedule("* * * * *", async () => {
-  const now = new Date();
-  const expired = await Auction.find({
-    endTime: { $lt: now },
-    status: { $ne: "closed" },
-  });
+  try {
+    const now = new Date();
 
-  for (const auc of expired) {
-    auc.status = "closed";
-    await auc.save();
-    console.log(`⏰ Auction "${auc.title}" closed automatically`);
+    // mark completed auctions
+    const toComplete = await Auction.find({ endTime: { $lt: now }, status: { $ne: "completed" } });
+    for (const auc of toComplete) {
+      auc.status = "completed";
+      await auc.save();
+      console.log(`⏰ Auction "${auc.title}" marked completed automatically`);
+    }
+
+    // mark ongoing auctions (treat missing startTime as started)
+    const toOngoing = await Auction.find({
+      endTime: { $gt: now },
+      status: { $ne: "ongoing" },
+      $or: [{ startTime: { $lte: now } }, { startTime: { $exists: false } }],
+    });
+    for (const auc of toOngoing) {
+      auc.status = "ongoing";
+      await auc.save();
+      console.log(`▶️ Auction "${auc.title}" marked ongoing`);
+    }
+
+    // mark upcoming auctions (if startTime in future)
+    const toUpcoming = await Auction.find({ startTime: { $gt: now }, status: { $ne: "upcoming" } });
+    for (const auc of toUpcoming) {
+      auc.status = "upcoming";
+      await auc.save();
+      console.log(`🔵 Auction "${auc.title}" marked upcoming`);
+    }
+  } catch (err) {
+    console.error("Cron auction status update error:", err);
   }
 });
 

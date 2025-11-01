@@ -40,20 +40,18 @@ const Dashboard = () => {
       }));
       setAuctions(normalized);
 
-      // Join socket rooms for each auction so we receive room-scoped updates
+      // Join socket rooms for ongoing auctions only (so we receive real-time updates)
       try {
         normalized.forEach((a) => {
           const aid = a._id || a.id;
-          // Only join rooms for active auctions
-          if (aid && a.status !== "closed") socket.emit("join_auction", aid);
+          if (aid && a.status === "ongoing") socket.emit("join_auction", aid);
         });
         // Re-join on reconnects
         if (normalized.length) {
-          // attach a connect listener that rejoins these rooms after a reconnect
           rejoinListener = () => {
             normalized.forEach((a) => {
               const aid = a._id || a.id;
-              if (aid && a.status !== "closed") socket.emit("join_auction", aid);
+              if (aid && a.status === "ongoing") socket.emit("join_auction", aid);
             });
           };
           socket.on("connect", rejoinListener);
@@ -105,22 +103,60 @@ const Dashboard = () => {
 }, []);
 
 
+  // split auctions by status
+  const upcoming = auctions.filter((a) => a.status === "upcoming");
+  const ongoing = auctions.filter((a) => a.status === "ongoing");
+  const completed = auctions.filter((a) => a.status === "completed");
+
   return (
     <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-4 text-gray-800">Ongoing Auctions</h1>
+      <h1 className="text-2xl font-bold mb-4 text-gray-800">Auctions</h1>
 
       {loading ? (
         <p>Loading auctions...</p>
       ) : error ? (
         <p className="text-red-500">Error: {error}</p>
-      ) : auctions.length === 0 ? (
-        <p>No auctions found.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {auctions.map((auction) => (
-            <AuctionCard key={auction.id} auction={auction} />
-          ))}
-        </div>
+        <>
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold mb-3">🔵 Upcoming Auctions</h2>
+            {upcoming.length === 0 ? (
+              <p className="text-sm text-gray-600">No upcoming auctions.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {upcoming.map((auction) => (
+                  <AuctionCard key={auction.id} auction={auction} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold mb-3">🟢 Ongoing Auctions</h2>
+            {ongoing.length === 0 ? (
+              <p className="text-sm text-gray-600">No ongoing auctions.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {ongoing.map((auction) => (
+                  <AuctionCard key={auction.id} auction={auction} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-3">🔴 Completed Auctions</h2>
+            {completed.length === 0 ? (
+              <p className="text-sm text-gray-600">No completed auctions.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {completed.map((auction) => (
+                  <AuctionCard key={auction.id} auction={auction} />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
       )}
     </div>
   );

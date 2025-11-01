@@ -8,6 +8,9 @@ export const placeBid = async (req, res) => {
     if (!auction) return res.status(404).json({ message: "Auction not found" });
     // Use atomic update to prevent races and accept bids only while auction is active
     const now = new Date();
+    if (auction.startTime && new Date(auction.startTime) > now) {
+      return res.status(400).json({ message: "Auction hasn't started yet" });
+    }
     if (new Date(auction.endTime) <= now) {
       return res.status(400).json({ message: "Auction expired" });
     }
@@ -25,7 +28,12 @@ export const placeBid = async (req, res) => {
 
     // Attempt atomic update: only update if auction still active and currentBid is still lower than amount
     const updated = await Auction.findOneAndUpdate(
-      { _id: auctionId, endTime: { $gt: now }, currentBid: { $lt: amount } },
+      {
+        _id: auctionId,
+        endTime: { $gt: now },
+        $or: [{ startTime: { $lte: now } }, { startTime: { $exists: false } }],
+        currentBid: { $lt: amount },
+      },
       { $set: { currentBid: amount }, $push: { bids: bid._id } },
       { new: true }
     );

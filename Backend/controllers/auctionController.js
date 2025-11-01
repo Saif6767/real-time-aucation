@@ -5,7 +5,10 @@ import fs from "fs";
 
 export const getAllAuctions = async (req, res) => {
   try {
-    const auctions = await Auction.find().sort({ createdAt: -1 });
+    const filter = {};
+    // allow filtering by status: /api/auctions?status=ongoing
+    if (req.query?.status) filter.status = req.query.status;
+    const auctions = await Auction.find(filter).sort({ createdAt: -1 });
     res.json(auctions);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -45,7 +48,7 @@ export const createAuction = async (req, res) => {
     return res.status(500).json({ message: "Server error during authorization check" });
   }
   try {
-    const { title, description, image, startPrice, endTime } = req.body;
+  const { title, description, image, startPrice, endTime, startTime } = req.body;
 
     // Basic validation
     if (!title || !startPrice || !endTime) {
@@ -53,7 +56,8 @@ export const createAuction = async (req, res) => {
     }
 
     const parsedStartPrice = Number(startPrice);
-    let parsedEndTime;
+  let parsedEndTime;
+  let parsedStartTime;
     if (typeof endTime === "string") {
       const re = /^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/;
       const m = endTime.match(re);
@@ -81,12 +85,45 @@ export const createAuction = async (req, res) => {
       parsedEndTime = new Date(endTime);
     }
 
+    // parse startTime if provided, otherwise default to now
+    if (startTime) {
+      if (typeof startTime === "string") {
+        const re2 = /^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/;
+        const m2 = startTime.match(re2);
+        if (m2) {
+          let [, y2, part2, part3, hh2, mm2] = m2;
+          let mo2 = Number(part2);
+          let d2 = Number(part3);
+          if (mo2 > 12 && d2 <= 12) {
+            const tmp = mo2;
+            mo2 = d2;
+            d2 = tmp;
+          }
+          parsedStartTime = new Date(Number(y2), mo2 - 1, d2, Number(hh2), Number(mm2));
+        } else {
+          parsedStartTime = new Date(startTime);
+        }
+      } else {
+        parsedStartTime = new Date(startTime);
+      }
+    } else {
+      parsedStartTime = new Date();
+    }
+
     if (Number.isNaN(parsedStartPrice) || parsedStartPrice < 0) {
       return res.status(400).json({ message: "startPrice must be a non-negative number" });
     }
 
     if (isNaN(parsedEndTime.getTime()) || parsedEndTime <= new Date()) {
       return res.status(400).json({ message: "endTime must be a valid future date" });
+    }
+
+    if (isNaN(parsedStartTime.getTime())) {
+      return res.status(400).json({ message: "startTime must be a valid date" });
+    }
+
+    if (parsedStartTime >= parsedEndTime) {
+      return res.status(400).json({ message: "startTime must be before endTime" });
     }
 
     // Determine image URL: prefer uploaded file (req.file), fallback to image in body (URL)
@@ -109,13 +146,22 @@ export const createAuction = async (req, res) => {
       }
     }
 
+    // derive status from start/end times
+    const now = new Date();
+    let status = "upcoming";
+    if (parsedStartTime > now) status = "upcoming";
+    else if (parsedEndTime <= now) status = "completed";
+    else status = "ongoing";
+
     const auction = new Auction({
       title,
       description: description || "",
       image: imageUrl,
       startPrice: parsedStartPrice,
       currentBid: parsedStartPrice,
+      startTime: parsedStartTime,
       endTime: parsedEndTime,
+      status,
       bids: [],
     });
 

@@ -108,7 +108,7 @@ const AuctionDetail = () => {
       </p>
       <CountdownTimer endTime={auction.endTime} />
 
-      {(auction.status === "closed" || new Date(auction.endTime) <= new Date()) ? (
+      {(auction.status === "completed" || new Date(auction.endTime) <= new Date()) ? (
         <div className="mt-4">
           <span className="inline-block px-3 py-2 bg-gray-300 text-gray-700 rounded-full">
             Auction Closed

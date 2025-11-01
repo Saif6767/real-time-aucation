@@ -7,9 +7,11 @@ const auctionSchema = new mongoose.Schema(
     image: String,
     startPrice: Number,
     currentBid: { type: Number, default: 0 },
+    startTime: Date,
     endTime: Date,
     bids: [{ type: mongoose.Schema.Types.ObjectId, ref: "Bid" }],
-    status: { type: String, enum: ["active", "closed"], default: "active" },
+    // statuses: upcoming = not yet started, ongoing = active between startTime and endTime, completed = finished
+    status: { type: String, enum: ["upcoming", "ongoing", "completed"], default: "upcoming" },
   },
   { timestamps: true }
 );
